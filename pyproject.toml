@@ -42,6 +42,7 @@ Repository = "https://github.com/Minidoracat/mcp-feedback-enhanced"
 Issues = "https://github.com/Minidoracat/mcp-feedback-enhanced/issues"
 
 [project.scripts]
+mcp-feedback-enhanced = "mcp_feedback_enhanced.__main__:main"
 mcp-fast-feedback = "mcp_feedback_enhanced.__main__:main"
 interactive-feedback-mcp = "mcp_feedback_enhanced.__main__:main"
 
