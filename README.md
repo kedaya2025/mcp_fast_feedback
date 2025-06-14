@@ -43,7 +43,6 @@ MCP Fast Feedback 是一个增强版的 MCP (Model Context Protocol) 交互式�
 
 ### 🔧 **安装方法**
 
-#### 方法一：使用 uv (推荐)
 ```bash
 # 克隆仓库
 git clone https://github.com/kedaya2025/mcp_fast_feedback.git
@@ -52,15 +51,8 @@ cd mcp_fast_feedback
 # 安装依赖
 uv sync
 
-# 运行测试
-uv run mcp-fast-feedback test --hybrid
-```
-
-#### 方法二：使用 pip
-```bash
-git clone https://github.com/kedaya2025/mcp_fast_feedback.git
-cd mcp_fast_feedback
-pip install -e .
+# 测试安装
+uv run python -m mcp_feedback_enhanced version
 ```
 
 ### ⚙️ **MCP 配置**
@@ -69,22 +61,17 @@ pip install -e .
 
 ```json
 {
-  "mcpServers": {
-    "mcp-fast-feedback": {
-      "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "/path/to/mcp_fast_feedback",
-        "mcp-fast-feedback"
-      ],
-      "timeout": 600,
-      "autoApprove": ["interactive_feedback"],
-      "env": {
-        "MCP_UI_MODE": "auto",
-        "MCP_DEBUG": "false"
-      }
-    }
+  "command": "uv",
+  "args": [
+    "run",
+    "--directory",
+    "/path/to/mcp_fast_feedback",
+    "python", "-m", "mcp_feedback_enhanced"
+  ],
+  "timeout": 600,
+  "autoApprove": ["interactive_feedback"],
+  "env": {
+    "MCP_UI_MODE": "auto"
   }
 }
 ```
@@ -110,20 +97,11 @@ pip install -e .
 ## 🧪 **功能测试**
 
 ```bash
-# 测试混合架构
-uv run mcp-fast-feedback test --hybrid
-
-# 测试 GUI 界面
-uv run mcp-fast-feedback test --gui
-
-# 测试 Web UI
-uv run mcp-fast-feedback test --web
-
 # 查看版本信息
-uv run mcp-fast-feedback version
+uv run python -m mcp_feedback_enhanced version
 
-# 查看环境信息
-uv run mcp-fast-feedback info
+# 测试混合架构
+uv run python -m mcp_feedback_enhanced test --hybrid
 ```
 
 ## 📸 **界面预览**
@@ -142,21 +120,6 @@ uv run mcp-fast-feedback info
 
 ## 🛠️ **开发指南**
 
-### 项目结构
-```
-mcp_fast_feedback/
-├── src/mcp_feedback_enhanced/
-│   ├── gui/                 # GUI 界面模块
-│   ├── web/                 # Web UI 模块
-│   ├── mode_selector.py     # 智能模式选择器
-│   ├── launcher.py          # 统一启动器
-│   ├── models.py           # 统一数据模型
-│   └── server.py           # MCP 服务器
-├── tests/                  # 测试文件
-├── docs/                   # 文档
-└── pyproject.toml         # 项目配置
-```
-
 ### 本地开发
 ```bash
 # 开发模式安装
@@ -166,8 +129,7 @@ uv sync --dev
 uv run pytest
 
 # 代码格式化
-uv run black src/
-uv run isort src/
+uv run ruff format src/
 
 # 类型检查
 uv run mypy src/
@@ -177,35 +139,16 @@ uv run mypy src/
 
 本项目基于 [mcp-feedback-enhanced](https://github.com/Minidoracat/mcp-feedback-enhanced) 进行改进开发，感谢原作者 **Minidoracat** 的优秀工作和开源贡献。
 
-### 原项目特性
-- 完整的 GUI 界面实现
-- 多语言国际化支持
-- 现代化的 Web UI 设计
-- 丰富的配置选项
-
-### 本项目改进
+### 主要改进
 - 🔄 **混合架构设计** - 智能选择最适合的界面模式
 - 🧠 **智能环境检测** - 自动识别运行环境类型
 - 🛡️ **降级机制** - 确保在任何环境下都能正常工作
-- 📐 **布局优化** - 改进设置页面为左右布局，防止重叠
+- 📐 **布局优化** - 改进设置页面布局，防止重叠
 - 🌏 **本地化修复** - 修复中文显示问题
 
 ## 📄 **许可证**
 
 本项目采用 MIT 许可证 - 查看 [LICENSE](LICENSE) 文件了解详情。
-
-## 🔗 **相关链接**
-
-- 🏠 **项目主页**: https://github.com/kedaya2025/mcp_fast_feedback
-- 📚 **原项目**: https://github.com/Minidoracat/mcp-feedback-enhanced
-- 🐛 **问题反馈**: https://github.com/kedaya2025/mcp_fast_feedback/issues
-- 💡 **功能建议**: https://github.com/kedaya2025/mcp_fast_feedback/discussions
-
-## 📊 **版本历史**
-
-- **v2.5.0** (2024-12) - 混合架构版本，智能模式选择
-- **v2.4.2** - Web UI 增强版本 (基于原项目)
-- **v2.3.0** - GUI 界面版本 (基于原项目)
 
 ---
 
