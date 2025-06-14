@@ -33,7 +33,21 @@ class I18nManager:
         self._supported_languages = ["zh-TW", "en", "zh-CN"]
         self._fallback_language = "en"
         self._config_file = self._get_config_file_path()
-        self._locales_dir = Path(__file__).parent / "web" / "locales"
+        # 优先使用 GUI 的语言文件，如果不存在则使用 Web 的
+        gui_locales_dir = Path(__file__).parent / "gui" / "locales"
+        web_locales_dir = Path(__file__).parent / "web" / "locales"
+
+        # 检查哪个目录存在并有语言文件
+        if gui_locales_dir.exists() and any(gui_locales_dir.iterdir()):
+            self._locales_dir = gui_locales_dir
+            debug_log("使用 GUI 语言文件目录")
+        elif web_locales_dir.exists() and any(web_locales_dir.iterdir()):
+            self._locales_dir = web_locales_dir
+            debug_log("使用 Web UI 语言文件目录")
+        else:
+            # 默认使用 GUI 目录
+            self._locales_dir = gui_locales_dir
+            debug_log("使用默认 GUI 语言文件目录")
 
         # 載入翻譯
         self._load_all_translations()
@@ -53,7 +67,11 @@ class I18nManager:
 
         for lang_code in self._supported_languages:
             lang_dir = self._locales_dir / lang_code
-            translation_file = lang_dir / "translation.json"
+
+            # 尝试两种文件名：translations.json (GUI) 和 translation.json (Web)
+            translation_file = lang_dir / "translations.json"
+            if not translation_file.exists():
+                translation_file = lang_dir / "translation.json"
 
             if translation_file.exists():
                 try:

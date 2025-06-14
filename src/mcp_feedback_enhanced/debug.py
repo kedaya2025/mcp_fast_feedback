@@ -69,6 +69,11 @@ def web_debug_log(message: Any) -> None:
     debug_log(message, "WEB")
 
 
+def gui_debug_log(message: Any) -> None:
+    """GUI 模組專用的調試日誌"""
+    debug_log(message, "GUI")
+
+
 def is_debug_enabled() -> bool:
     """檢查是否啟用了調試模式"""
     return os.getenv("MCP_DEBUG", "").lower() in ("true", "1", "yes", "on")

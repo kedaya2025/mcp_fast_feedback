@@ -437,13 +437,18 @@ async def interactive_feedback(
     """
     收集用戶的互動回饋，支援文字和圖片
 
-    此工具使用 Web UI 介面收集用戶回饋，支援智能環境檢測。
+    此工具支援混合架構，智能選擇 GUI 或 Web UI 介面收集用戶回饋。
 
     用戶可以：
     1. 執行命令來驗證結果
     2. 提供文字回饋
     3. 上傳圖片作為回饋
     4. 查看 AI 的工作摘要
+
+    界面選擇：
+    - 本地環境：優先使用 GUI 界面（如果可用）
+    - 遠程環境：自動使用 Web UI 界面
+    - 降級機制：GUI 失敗時自動切換到 Web UI
 
     調試模式：
     - 設置環境變數 MCP_DEBUG=true 可啟用詳細調試輸出
@@ -457,47 +462,76 @@ async def interactive_feedback(
     Returns:
         List: 包含 TextContent 和 MCPImage 對象的列表
     """
-    # 環境偵測
-    is_remote = is_remote_environment()
-    is_wsl = is_wsl_environment()
-
-    debug_log(f"環境偵測結果 - 遠端: {is_remote}, WSL: {is_wsl}")
-    debug_log("使用介面: Web UI")
-
+    # 環境偵測和模式選擇
     try:
+        from .launcher import launch_feedback_ui as unified_launch
+        from .mode_selector import get_mode_selector
+
+        # 獲取環境信息
+        mode_selector = get_mode_selector()
+        env_info = mode_selector.get_environment_info()
+
+        debug_log(f"環境偵測結果: {env_info}")
+
         # 確保專案目錄存在
         if not os.path.exists(project_directory):
             project_directory = os.getcwd()
         project_directory = os.path.abspath(project_directory)
 
-        # 使用 Web 模式
-        debug_log("回饋模式: web")
+        # 使用統一啟動器
+        debug_log("使用混合架構啟動器")
 
-        result = await launch_web_feedback_ui(project_directory, summary, timeout)
+        # 從環境變數獲取用戶偏好（如果有）
+        user_preference = os.getenv("MCP_UI_MODE", "auto").lower()
+        force_mode = os.getenv("MCP_FORCE_UI_MODE", "").lower() or None
+
+        debug_log(f"用戶偏好: {user_preference}, 強制模式: {force_mode}")
+
+        result = await unified_launch(
+            project_directory=project_directory,
+            summary=summary,
+            timeout=timeout,
+            user_preference=user_preference,
+            force_mode=force_mode
+        )
 
         # 處理取消情況
         if not result:
             return [TextContent(type="text", text="用戶取消了回饋。")]
 
+        # 轉換 FeedbackResult 為字典格式（向後兼容）
+        if hasattr(result, 'feedback_text'):
+            # 新的 FeedbackResult 對象
+            result_dict = {
+                "interactive_feedback": result.feedback_text or "",
+                "command_logs": getattr(result, 'command_logs', ""),
+                "images": result.images or [],
+                "metadata": getattr(result, 'metadata', {})
+            }
+            debug_log(f"使用界面模式: {result_dict.get('metadata', {}).get('ui_mode', 'unknown')}")
+        else:
+            # 舊的字典格式
+            result_dict = result
+
         # 儲存詳細結果
-        save_feedback_to_file(result)
+        save_feedback_to_file(result_dict)
 
         # 建立回饋項目列表
         feedback_items = []
 
         # 添加文字回饋
         if (
-            result.get("interactive_feedback")
-            or result.get("command_logs")
-            or result.get("images")
+            result_dict.get("interactive_feedback")
+            or result_dict.get("command_logs")
+            or result_dict.get("images")
         ):
-            feedback_text = create_feedback_text(result)
+            feedback_text = create_feedback_text(result_dict)
             feedback_items.append(TextContent(type="text", text=feedback_text))
             debug_log("文字回饋已添加")
 
         # 添加圖片回饋
-        if result.get("images"):
-            mcp_images = process_images(result["images"])
+        if result_dict.get("images"):
+            mcp_images = process_images(result_dict["images"])
             # 修復 arg-type 錯誤 - 直接擴展列表
             feedback_items.extend(mcp_images)
             debug_log(f"已添加 {len(mcp_images)} 張圖片")
@@ -510,6 +544,42 @@ async def interactive_feedback(
 
         debug_log(f"回饋收集完成，共 {len(feedback_items)} 個項目")
         return feedback_items
+
+    except ImportError as e:
+        # 統一啟動器不可用，降級到 Web UI
+        debug_log(f"統一啟動器不可用，降級到 Web UI: {e}")
+        try:
+            result = await launch_web_feedback_ui(project_directory, summary, timeout)
+
+            if not result:
+                return [TextContent(type="text", text="用戶取消了回饋。")]
+
+            save_feedback_to_file(result)
+            feedback_items = []
+
+            if (
+                result.get("interactive_feedback")
+                or result.get("command_logs")
+                or result.get("images")
+            ):
+                feedback_text = create_feedback_text(result)
+                feedback_items.append(TextContent(type="text", text=feedback_text))
+
+            if result.get("images"):
+                mcp_images = process_images(result["images"])
+                feedback_items.extend(mcp_images)
+
+            if not feedback_items:
+                feedback_items.append(
+                    TextContent(type="text", text="用戶未提供任何回饋內容。")
+                )
+
+            debug_log(f"降級模式回饋收集完成，共 {len(feedback_items)} 個項目")
+            return feedback_items
+
+        except Exception as fallback_e:
+            debug_log(f"降級模式也失敗: {fallback_e}")
+            return [TextContent(type="text", text=f"界面啟動失敗: {str(fallback_e)}")]
 
     except Exception as e:
         # 使用統一錯誤處理，但不影響 JSON RPC 響應
@@ -576,21 +646,37 @@ def get_system_info() -> str:
     is_remote = is_remote_environment()
     is_wsl = is_wsl_environment()
 
+    # 獲取混合架構信息
+    try:
+        from .launcher import get_environment_info, get_available_modes
+        env_info = get_environment_info()
+        available_modes = get_available_modes()
+        architecture_type = "混合架構 (GUI + Web UI)"
+    except ImportError:
+        env_info = {}
+        available_modes = ["web"]
+        architecture_type = "Web UI 單一架構"
+
     system_info = {
         "平台": sys.platform,
         "Python 版本": sys.version.split()[0],
+        "架構類型": architecture_type,
+        "可用界面模式": available_modes,
         "WSL 環境": is_wsl,
         "遠端環境": is_remote,
-        "介面類型": "Web UI",
+        "環境詳情": env_info,
         "環境變數": {
             "SSH_CONNECTION": os.getenv("SSH_CONNECTION"),
             "SSH_CLIENT": os.getenv("SSH_CLIENT"),
             "DISPLAY": os.getenv("DISPLAY"),
+            "WAYLAND_DISPLAY": os.getenv("WAYLAND_DISPLAY"),
             "VSCODE_INJECTION": os.getenv("VSCODE_INJECTION"),
             "SESSIONNAME": os.getenv("SESSIONNAME"),
             "WSL_DISTRO_NAME": os.getenv("WSL_DISTRO_NAME"),
             "WSL_INTEROP": os.getenv("WSL_INTEROP"),
             "WSLENV": os.getenv("WSLENV"),
+            "MCP_UI_MODE": os.getenv("MCP_UI_MODE"),
+            "MCP_FORCE_UI_MODE": os.getenv("MCP_FORCE_UI_MODE"),
         },
     }
 
@@ -604,14 +690,24 @@ def main():
     debug_enabled = os.getenv("MCP_DEBUG", "").lower() in ("true", "1", "yes", "on")
 
     if debug_enabled:
-        debug_log("🚀 啟動互動式回饋收集 MCP 服務器")
+        debug_log("🚀 啟動互動式回饋收集 MCP 服務器 v2.5.0")
         debug_log(f"   服務器名稱: {SERVER_NAME}")
         debug_log(f"   版本: {__version__}")
         debug_log(f"   平台: {sys.platform}")
         debug_log(f"   編碼初始化: {'成功' if _encoding_initialized else '失敗'}")
         debug_log(f"   遠端環境: {is_remote_environment()}")
         debug_log(f"   WSL 環境: {is_wsl_environment()}")
-        debug_log("   介面類型: Web UI")
+
+        # 檢查混合架構狀態
+        try:
+            from .launcher import get_available_modes
+            available_modes = get_available_modes()
+            debug_log(f"   架構類型: 混合架構 (GUI + Web UI)")
+            debug_log(f"   可用模式: {', '.join(available_modes)}")
+        except ImportError:
+            debug_log("   架構類型: Web UI 單一架構")
+            debug_log("   可用模式: web")
+
         debug_log("   等待來自 AI 助手的調用...")
         debug_log("準備啟動 MCP 伺服器...")
         debug_log("調用 mcp.run()...")

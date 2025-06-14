@@ -1,7 +1,7 @@
 [project]
-name = "mcp-feedback-enhanced"
-version = "2.4.2"
-description = "Enhanced MCP server for interactive user feedback and command execution in AI-assisted development, featuring Web UI with intelligent environment detection."
+name = "mcp-fast-feedback"
+version = "2.5.0"
+description = "Enhanced MCP server for interactive user feedback and command execution in AI-assisted development, featuring hybrid architecture with both GUI and Web UI support."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [
@@ -27,6 +27,7 @@ dependencies = [
     "websockets>=13.0.0",
     "aiohttp>=3.8.0",
     "mcp>=1.9.3",
+    "pyside6>=6.8.2.1",
 ]
 
 [project.optional-dependencies]
@@ -41,7 +42,7 @@ Repository = "https://github.com/Minidoracat/mcp-feedback-enhanced"
 Issues = "https://github.com/Minidoracat/mcp-feedback-enhanced/issues"
 
 [project.scripts]
-mcp-feedback-enhanced = "mcp_feedback_enhanced.__main__:main"
+mcp-fast-feedback = "mcp_feedback_enhanced.__main__:main"
 interactive-feedback-mcp = "mcp_feedback_enhanced.__main__:main"
 
 [build-system]
